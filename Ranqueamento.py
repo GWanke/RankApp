@@ -275,10 +275,10 @@ def main():
         data = load_cache(cache_file)
     else:
         # Buscar os dados da API
-        url = User_url
+        url = st.secrets['User_url']
         headers = {
-            "email": User_email, 
-            "token": User_token
+            "email": st.secrets[User_email], 
+            "token": st.secrets[User_token]
         }
         
         data = fetch_data(url, headers)
