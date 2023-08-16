@@ -275,10 +275,10 @@ def main():
         data = load_cache(cache_file)
     else:
         # Buscar os dados da API
-        url = "https://bravoea.cvcrm.com.br/api/cvio/reserva?situacao=3&retornar_integradas=true&registros_por_pagina=500"
+        url = User_url
         headers = {
-            "email": "gustavo.w@bravoea.com",
-            "token": "0c633662c57ef9a2f4d6134a06557a41e6fa3100"
+            "email": User_email
+            "token": User_token
         }
         
         data = fetch_data(url, headers)
