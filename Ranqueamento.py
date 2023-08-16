@@ -277,8 +277,8 @@ def main():
         # Buscar os dados da API
         url = st.secrets['User_url']
         headers = {
-            "email": st.secrets[User_email], 
-            "token": st.secrets[User_token]
+            "email": st.secrets['User_email'], 
+            "token": st.secrets['User_token']
         }
         
         data = fetch_data(url, headers)
