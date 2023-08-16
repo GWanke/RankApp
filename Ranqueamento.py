@@ -277,7 +277,7 @@ def main():
         # Buscar os dados da API
         url = User_url
         headers = {
-            "email": User_email
+            "email": User_email, 
             "token": User_token
         }
         
