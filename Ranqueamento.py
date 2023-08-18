@@ -1,10 +1,9 @@
 import requests
 import pandas as pd
-import json
 import streamlit as st
-import os
 import matplotlib.pyplot as plt
 import matplotlib.colors as mcolors
+import matplotlib.patches as patches
 import seaborn as sns
 import numpy as np
 
@@ -12,6 +11,10 @@ import numpy as np
 if 'page' not in st.session_state:
     st.session_state.page = 0
 
+def fetch_and_cache_data(url, headers):
+    return fetch_data(url, headers)
+
+@st.cache_data
 def fetch_data(url, headers):
     """Busca os dados da API.
     :param url: URL da API
@@ -21,60 +24,67 @@ def fetch_data(url, headers):
     response = requests.get(url, headers=headers)
     return response.json() if response.status_code == 200 else None
 
-def save_cache(data, cache_file='response_cache.json'):
-    """Salva os dados em um arquivo JSON.
-    :param data: Dados para salvar
-    :param cache_file: Nome do arquivo de cache (opcional)"""
-
-    with open(cache_file, 'w') as file:
-        json.dump(data, file)
-
-def load_cache(cache_file='response_cache.json'):
-    """Carrega os dados de um arquivo JSON.
-    :param cache_file: Nome do arquivo de cache (opcional)
-    :return: Dados carregados"""
-
-    with open(cache_file, 'r') as file:
-        return json.load(file)
 
 def process_data(data):
     """Processa os dados JSON e retorna um DataFrame.
     :param data: Dados em formato JSON
     :return: DataFrame processado"""
     rows = []
-    empr_unicos = set()
     for key, value in data.items():
+        reserva = key
         corretor = value["corretor"]["corretor"]
         #Se o corretor for Evandro Rodrigues Da Silva, pule para a próxima iteração
         if corretor == 'Evandro Rodrigues da Silva':
             continue
+
+        corretor_id = value ["corretor"]["idcorretor_cv"]
         empreendimento = value["unidade"]["empreendimento"]
-        empr_unicos.add(empreendimento)
         imobiliaria = value["corretor"]["imobiliaria"]  # Você pode escolher outro campo da imobiliária se preferir
         valor_contrato = value["condicoes"]["valor_contrato"]
         data_venda = value["data_venda"]
-
         row = {
+            'reserva': reserva,
             "empreendimento": empreendimento,
             "corretor": corretor,
+            "id_corretor": corretor_id,
             "imobiliaria": imobiliaria,
             "valor_contrato": valor_contrato,
             "data_venda": data_venda,
         }
         rows.append(row)
-    print(list(empr_unicos))
+
     return pd.DataFrame(rows)
+
 
 def calcular_total_vendas(df):
     return df['valor_contrato'].sum()
 
 def normalizar_nome(nome):
-    return ' '.join([word.capitalize() for word in nome.split()]) 
+    return ' '.join([word.capitalize() for word in nome.split()])
+
+def diminuir_name(name, max_length = 20):
+    if len(name) <= max_length:
+        return name
+
+    parts = name.split()
+    for i in range(1, len(parts) - 1):
+        # Substitua os nomes do meio por sua primeira letra e um ponto
+        if len(name) > max_length:
+            parts[i] = parts[i][0] + '.'
+            name = ' '.join(parts)
+
+    return name
+
 
 def filter_by_empreendimento(df, empreendimento):
     if empreendimento != "Total":
         return df[df['empreendimento'] == empreendimento]
     return df
+
+def processar_name(name):
+    normalized_name = normalizar_nome(name)
+    shortened_name = diminuir_name(normalized_name)
+    return shortened_name
 
 
 def prepare_data(df):
@@ -88,15 +98,19 @@ def prepare_data(df):
     df = filter_by_empreendimento(df, empreendimento)
 
     # Agrupar e ordenar os dados
-    ranking = df.groupby('corretor')['valor_contrato'].sum().reset_index()
+    ranking = df.groupby(['corretor'], as_index=False)['valor_contrato'].sum()    
     ranking = ranking.sort_values(by='valor_contrato', ascending=False)
 
     # Normalizar os nomes
-    ranking['corretor'] = ranking['corretor'].apply(normalizar_nome)
+    ranking['corretor'] = ranking['corretor'].apply(processar_name)
     
     # Definir as cores
-    colors = ['gold', 'silver', 'brown'] + [mcolors.CSS4_COLORS[name] for name in np.random.choice(list(mcolors.CSS4_COLORS), len(ranking) - 3)]
+    fixed_colors = ['gold', 'silver', 'brown']
+    num_fixed_colors = min(3, len(ranking))
+    colors = fixed_colors[:num_fixed_colors] + [mcolors.CSS4_COLORS[name] for name in np.random.choice(list(mcolors.CSS4_COLORS), max(len(ranking) - num_fixed_colors, 0))]
 
+    # Usar todas as cores base e adicionar cores aleatórias, se necessário
+    #colors = base_colors[:len(ranking)] + random_colors
     return ranking, colors
 
 
@@ -121,23 +135,29 @@ def select_data(ranking, colors):
     return subset_ranking, subset_colors
 
 
-
-
 def create_plot(subset_ranking, subset_colors):
-    """Cria o gráfico.
-
-    :param subset_ranking: DataFrame com os dados selecionados
-    :param subset_colors: Lista de cores selecionadas
-    :return: fig, ax """
-        
-    # Criar o gráfico
     fig, ax = plt.subplots(figsize=(10, 6))
-    sns.barplot(x='valor_contrato', y='corretor', data=subset_ranking,palette = subset_colors )
+
+    # Criar o gráfico
+    sns.barplot(x='valor_contrato', y='corretor', data=subset_ranking, palette=subset_colors)
+
+    # Se estiver na primeira página, destacar o primeiro corretor
+    if st.session_state.page == 0:
+        valor_primeiro = subset_ranking['valor_contrato'].iloc[0]
+
+        # Colocar a palavra "Líder" no meio da barra do primeiro colocado
+        ax.text(valor_primeiro / 2, 0, 'Líder', ha='center', va='center', color='Red', fontsize = 20)
+
+        # Adicionar uma borda ao redor da barra do primeiro colocado
+        rect = patches.Rectangle((0, -0.4), valor_primeiro, 0.8, linewidth=4, edgecolor='r', facecolor='none')
+        ax.add_patch(rect)
+
     plt.xlabel('')
     plt.ylabel('Corretor')
     plt.title('Ranking dos Corretores')
 
     return fig, ax
+
 
 def customize_plot(fig, ax, ranking):
     """Personaliza o gráfico.
@@ -162,6 +182,9 @@ def customize_plot(fig, ax, ranking):
 
     # Remover a legenda do eixo x para ocultar os valores de 'valor_contrato'
     ax.set(xticklabels=[])
+
+    if st.session_state.page == 0:
+        ax.yaxis.get_ticklabels()[0].set_fontsize(15)
 
     # Exibir o gráfico no Streamlit
     st.pyplot(fig)
@@ -194,6 +217,9 @@ def display_corretor_ranking(df):
     :param df: DataFrame contendo os dados """
 
     ranking, colors = prepare_data(df)
+    if len(ranking) == 0:
+        st.write("Não existem vendas cadastradas para este empreendimento.")
+        return
     subset_ranking, subset_colors = select_data(ranking, colors)
     fig, ax = create_plot(subset_ranking, subset_colors)
     customize_plot(fig, ax, ranking)
@@ -202,19 +228,28 @@ def display_corretor_ranking(df):
     display_page_buttons(ranking)
 
 def create_meta_plot(total_vendas, metas):
-    """Cria o gráfico de meta de vendas.
+    fig, ax = plt.subplots(figsize=(10, 4))
 
-    :param total_vendas: Total de vendas
-    :param metas: Lista das metas
-    :return: fig, ax """
+    # Cores para diferentes faixas de progresso
+    if total_vendas < metas[0]:
+        bar_color = 'red'
+    elif total_vendas < metas[1]:
+        bar_color = 'yellow'
+    else:
+        bar_color = 'green'
+
+    plt.barh(['Total Vendas'], total_vendas, color=bar_color)
     
-    fig, ax = plt.subplots(figsize=(10, 2))
-
-    plt.barh(['Total Vendas'], total_vendas, color='green')
-    plt.axvline(x=metas[0], color='blue', linestyle='--', label='Meta 30M')
-    plt.axvline(x=metas[1], color='red', linestyle='--', label='Meta 60M')
+    # Linhas de Meta (sempre visíveis)
+    plt.axvline(x=metas[0], color='yellow', linestyle='--', linewidth=2, label='Meta 30M')
+    plt.axvline(x=metas[1], color='green', linestyle='--', linewidth=2, label='Meta 60M')
+    
+    # Limites do eixo x para sempre mostrar as metas
+    plt.xlim(0, max(metas[1], total_vendas) * 1.1)
 
     return fig, ax
+
+
 
 def customize_meta_plot(fig, ax):
     """Personaliza o gráfico de meta de vendas.
@@ -247,16 +282,35 @@ def display_meta_vendas(total_vendas):
     customize_meta_plot(fig, ax)
 
 def display_empreendimento_buttons(df):
-    empreendimentos = ['BE GARDEN KAÁ SQUARE', 'BE BONIFÁCIO', 'BE DEODORO', 'Total']
+
+    empreendimentos = [ 'Total','BE GARDEN KAÁ SQUARE', 'BE BONIFÁCIO', 'BE DEODORO']
     cols = st.columns(len(empreendimentos))
     for i, empreendimento in enumerate(empreendimentos):
         if cols[i].button(empreendimento):  # Colocar cada botão em sua própria coluna
             st.session_state.empreendimento = empreendimento
+            st.session_state.page = 0
             st.experimental_rerun()
 
 
 def exibir_graficos(df):
     
+    # Definindo a cor de fundo e estilo
+    st.markdown(
+        """
+        <style>
+        .reportview-container {
+            background: linear-gradient(to right, #f2f4f6, #ffffff);
+        }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+    # Você pode adicionar um cabeçalho
+    st.markdown("# Competição de Vendas entre Corretores")
+
+
     total_vendas = df['valor_contrato'].sum()
 
     display_empreendimento_buttons(df)
@@ -266,35 +320,31 @@ def exibir_graficos(df):
     # Mostrar o progresso em relação às metas
     display_meta_vendas(total_vendas)
 
+    # Você pode adicionar um rodapé
+    st.markdown("© BravoEA - [Website](http://www.serbravo.com.br)")
+    st.markdown("---")
+
 
 def main():
-    cache_file = 'response_cache.json'
+    url = st.secrets['User_url']
+    headers = {
+        "email": st.secrets['User_email'], 
+        "token": st.secrets['User_token']
+    }
 
-    if os.path.exists(cache_file):
-        # Carregar os dados do arquivo de cache
-        data = load_cache(cache_file)
+    data_reserva = fetch_data(url,headers)
+
+
+    #data_reserva = st.cache_data('data_reserva', lambda: fetch_data(url, headers))
+
+    if data_reserva:
+        df_reserva_filtrado = (process_data(data_reserva)
+                              .astype({'id_corretor': int, 'valor_contrato': float})
+                              .assign(data_venda=lambda x: pd.to_datetime(x['data_venda']))
+                              .query('data_venda > "2022-01-01"'))
+        exibir_graficos(df_reserva_filtrado)
     else:
-        # Buscar os dados da API
-        url = st.secrets['User_url']
-        headers = {
-            "email": st.secrets['User_email'], 
-            "token": st.secrets['User_token']
-        }
-        
-        data = fetch_data(url, headers)
-        if data:
-            # Salvar a resposta no arquivo de cache
-            save_cache(data, cache_file)
-        else:
-            st.write(f"Erro ao consumir a API: {response.status_code}")
-            return
-
-    df = process_data(data)
-    # Converter a coluna valor_contrato para float
-    df['valor_contrato'] = df['valor_contrato'].astype(float)
-    # Converter a coluna data_venda para datetime
-    df['data_venda'] = pd.to_datetime(df['data_venda'])
-    exibir_graficos(df)
+        print("A operação falhou!")
 
 
 if __name__ == '__main__':
