@@ -4,15 +4,15 @@ import streamlit as st
 import matplotlib.pyplot as plt
 import matplotlib.colors as mcolors
 import matplotlib.patches as patches
+from matplotlib import patheffects as path_effects
 import seaborn as sns
 import numpy as np
 
 # Inicialize o estado da página se ainda não existir
+
 if 'page' not in st.session_state:
     st.session_state.page = 0
 
-def fetch_and_cache_data(url, headers):
-    return fetch_data(url, headers)
 
 @st.cache_data
 def fetch_data(url, headers):
@@ -62,7 +62,7 @@ def calcular_total_vendas(df):
 def normalizar_nome(nome):
     return ' '.join([word.capitalize() for word in nome.split()])
 
-def diminuir_name(name, max_length = 20):
+def diminuir_name(name, max_length = 45):
     if len(name) <= max_length:
         return name
 
@@ -77,7 +77,7 @@ def diminuir_name(name, max_length = 20):
 
 
 def filter_by_empreendimento(df, empreendimento):
-    if empreendimento != "Total":
+    if empreendimento != "TOTAL":
         return df[df['empreendimento'] == empreendimento]
     return df
 
@@ -94,7 +94,7 @@ def prepare_data(df):
     :return: ranking, cores"""
 
     # Filtra por empreendimento, se aplicável
-    empreendimento = st.session_state.get('empreendimento', 'Total')
+    empreendimento = st.session_state.get('empreendimento', 'TOTAL')
     df = filter_by_empreendimento(df, empreendimento)
 
     # Agrupar e ordenar os dados
@@ -136,10 +136,17 @@ def select_data(ranking, colors):
 
 
 def create_plot(subset_ranking, subset_colors):
-    fig, ax = plt.subplots(figsize=(10, 6))
+    fig, ax = plt.subplots(figsize=(12, 10))
+
+    propriedades = [
+        {'color': 'gold', 'fontsize': 25, 'weight': 'bold'},
+        {'color': 'silver', 'fontsize': 22, 'weight': 'bold'},
+        {'color': 'brown', 'fontsize': 20, 'weight': 'bold'},
+    ]
 
     # Criar o gráfico
     sns.barplot(x='valor_contrato', y='corretor', data=subset_ranking, palette=subset_colors)
+    valor_maximo = subset_ranking['valor_contrato'].max()
 
     # Se estiver na primeira página, destacar o primeiro corretor
     if st.session_state.page == 0:
@@ -152,8 +159,22 @@ def create_plot(subset_ranking, subset_colors):
         rect = patches.Rectangle((0, -0.4), valor_primeiro, 0.8, linewidth=4, edgecolor='r', facecolor='none')
         ax.add_patch(rect)
 
+        # Remova os rótulos padrão do eixo Y
+        ax.set_yticks(range(len(subset_ranking['corretor'])))
+        ax.set_yticklabels([])
+        # Adicionar rótulos manualmente, destacando o primeiro
+        for idx, corretor in enumerate(subset_ranking['corretor']):
+            props = propriedades[idx] if idx < len(propriedades) else {'color': 'white', 'fontsize': 16, 'weight': 'normal'}
+
+            #ajusta a pos dos nomes
+            posicao_x = -0.02 * valor_maximo
+            ax.text(posicao_x, idx, corretor, ha='right', va='center', **props,
+                    path_effects=[path_effects.withStroke(linewidth=2, foreground='black')])
+
     plt.xlabel('')
-    plt.ylabel('Corretor')
+    plt.ylabel('Corretores')
+    ax.yaxis.set_label_coords(0,0)
+    ax.yaxis.get_label().set_text('')
     plt.title('Ranking dos Corretores')
 
     return fig, ax
@@ -283,7 +304,7 @@ def display_meta_vendas(total_vendas):
 
 def display_empreendimento_buttons(df):
 
-    empreendimentos = [ 'Total','BE GARDEN KAÁ SQUARE', 'BE BONIFÁCIO', 'BE DEODORO']
+    empreendimentos = [ 'TOTAL','BE GARDEN KAÁ SQUARE', 'BE BONIFÁCIO', 'BE DEODORO']
     cols = st.columns(len(empreendimentos))
     for i, empreendimento in enumerate(empreendimentos):
         if cols[i].button(empreendimento):  # Colocar cada botão em sua própria coluna
@@ -294,17 +315,6 @@ def display_empreendimento_buttons(df):
 
 def exibir_graficos(df):
     
-    # Definindo a cor de fundo e estilo
-    st.markdown(
-        """
-        <style>
-        .reportview-container {
-            background: linear-gradient(to right, #f2f4f6, #ffffff);
-        }
-        </style>
-        """,
-        unsafe_allow_html=True,
-    )
 
 
     # Você pode adicionar um cabeçalho
@@ -312,10 +322,19 @@ def exibir_graficos(df):
 
 
     total_vendas = df['valor_contrato'].sum()
-
+   
     display_empreendimento_buttons(df)
-    # Mostrar o ranking dos corretores
-    display_corretor_ranking(df)
+
+        # Criar colunas
+    col1, col2 = st.columns([1, 3])
+
+    # Coluna 1: Imagem
+    with col1:
+        st.image('Imagens/pngtree-gray-network-placeholder-png-image_3416659.jpg')
+
+    # Coluna 2: Grafico
+    with col2:
+        display_corretor_ranking(df)
 
     # Mostrar o progresso em relação às metas
     display_meta_vendas(total_vendas)
