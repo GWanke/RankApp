@@ -122,7 +122,7 @@ def prepare_data(df):
     return ranking, colors, empreendimento
 
 def calcular_primeiro_lugar(df):
-    ranking, _, empreendimento = prepare_data(df)
+    ranking, _ , empreendimento = prepare_data(df)
     if len(ranking) > 0:
         primeiro_lugar = ranking.iloc[0]['corretor']
         return primeiro_lugar, empreendimento
@@ -155,12 +155,6 @@ def create_plot(subset_ranking, subset_colors, cor_prim, cor_secund):
     # tornar o fundo transparente
     fig.patch.set_alpha(0)
     ax.patch.set_alpha(0)
-
-#     propriedades = [
-#     {'color': '#007c83', 'fontsize': 25, 'weight': 'bold'},  # Primeiro colocado
-#     {'color': '#9c9fae', 'fontsize': 22, 'weight': 'bold'},  # Segundo colocado
-#     {'color': '#9c9fae', 'fontsize': 20, 'weight': 'bold'},  # Terceiro colocado
-# ]
 
 
     # Criar o gráfico
@@ -266,8 +260,9 @@ def display_corretor_ranking(df):
 
     cor_prim = cores_empr[empreendimento]['Principal']
     cor_secund = cores_empr[empreendimento]['Secundária']
+
     if len(ranking) == 0:
-        st.write("Não existem vendas cadastradas para este empreendimento.")
+        st.write("")
         return
     subset_ranking, subset_colors = select_data(ranking, colors)
     fig, ax = create_plot(subset_ranking, subset_colors, cor_prim, cor_secund)
@@ -365,6 +360,22 @@ def set_png_as_page_bg(png_file):
     
     st.markdown(page_bg_img, unsafe_allow_html=True)
 
+def mensagem(primeiro_lugar, empreendimento):
+    if primeiro_lugar is None or empreendimento is None:
+        return f"<p style='text-align: center; color: black; font-size:25px; font-weight:bold;'>Não existe ranking atual deste empreendimento!</p>"
+
+    cor_prim = cores_empr[empreendimento]['Principal']
+    cor_secund = cores_empr[empreendimento]['Secundária']
+    
+    message = f"<p style='text-align: center; color: black; font-size:30px; font-weight:bold;'>🏆 O <span style='color: {cor_prim};'>BE</span>st Seller atual"
+
+    if empreendimento != 'TOTAL':
+        message += f" do <span style='color: {cor_secund};'>{empreendimento}</span>"
+
+    message += f" é <span style='color: {cor_prim};'>{primeiro_lugar}</span>!</p>"
+
+    return message
+
 
 def exibir_graficos(df):
 
@@ -374,11 +385,7 @@ def exibir_graficos(df):
     # Você pode adicionar um cabeçalho
     primeiro_lugar, empreendimento = calcular_primeiro_lugar(df)
 
-    if primeiro_lugar is not None and  empreendimento == 'TOTAL':
-        st.markdown(f"<p style='text-align: center; color: black; font-size:30px; font-weight:bold;'>🏆 O <span style='color: #007c83;'>BE</span>st Seller atual é <span style='color: #007c83;'>{primeiro_lugar}</span>!</p>", unsafe_allow_html=True)
-    if primeiro_lugar is None:
-        st.write("Nao existe ranking atual deste empreendimento!")
-
+    st.markdown(mensagem(primeiro_lugar, empreendimento), unsafe_allow_html=True)
 
     display_empreendimento_buttons(df)
 
