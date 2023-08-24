@@ -417,7 +417,7 @@ def main():
         
         exibir_graficos(df_reserva_filtrado)
     else:
-        print(f"A operação falhou!, com status{status}")
+        st.write(f"A operação falhou!, com status{status}")
 
 
 if __name__ == '__main__':
