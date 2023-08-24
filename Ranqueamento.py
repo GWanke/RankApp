@@ -98,23 +98,20 @@ def processar_name(name):
 
 
 def prepare_data(df):
-    """Prepara os dados para o gráfico.
+    """
+    Prepara os dados para o ranking, incluindo a filtragem por empreendimento e cores associadas.
 
     :param df: DataFrame contendo os dados
-    :return: ranking, cores"""
-
-    # Filtra por empreendimento, se aplicável
+    :return: ranking, colors, empreendimento
+    """
     empreendimento = st.session_state.get('empreendimento', 'TOTAL')
     df = filter_by_empreendimento(df, empreendimento)
 
     first_color = cores_empr[empreendimento]["Principal"]
     others_color = cores_empr[empreendimento]["Secundária"]
 
-    # Agrupar e ordenar os dados
-    ranking = df.groupby(['corretor'], as_index=False)['valor_contrato'].sum()    
+    ranking = df.groupby(['corretor'], as_index=False)['valor_contrato'].sum()
     ranking = ranking.sort_values(by='valor_contrato', ascending=False)
-
-    # Normalizar os nomes
     ranking['corretor'] = ranking['corretor'].apply(processar_name)
 
     colors = [first_color] + [others_color] * (len(ranking) - 1)
@@ -122,51 +119,52 @@ def prepare_data(df):
     return ranking, colors, empreendimento
 
 def calcular_primeiro_lugar(df):
-    ranking, _ , empreendimento = prepare_data(df)
+    """
+    Calcula o primeiro lugar no ranking.
+
+    :param df: DataFrame contendo os dados
+    :return: nome do corretor em primeiro lugar e empreendimento
+    """
+    ranking, _, empreendimento = prepare_data(df)
     if len(ranking) > 0:
         primeiro_lugar = ranking.iloc[0]['corretor']
         return primeiro_lugar, empreendimento
     return None, None
 
 def select_data(ranking, colors):
-    """Seleciona os dados usando o controle deslizante.
+    """
+    Seleciona os dados para a página atual do ranking.
 
-    :param ranking: DataFrame com os dados classificados
-    :param colors: Lista de cores
-    :return: subset_ranking, subset_colors"""
-
+    :param ranking: DataFrame contendo o ranking
+    :param colors: lista de cores
+    :return: subset_ranking, subset_colors
+    """
     items_per_page = 10
-
-    # Calcule o índice inicial com base na página atual
     start_index = st.session_state.page * items_per_page
-
-    # Filtrar os dados com base na seleção
     subset_ranking = ranking[start_index:start_index + items_per_page]
-
-    # Definir as cores para o subconjunto atual
     subset_colors = colors[start_index:start_index + items_per_page]
 
     return subset_ranking, subset_colors
 
+def create_and_customize_plot(subset_ranking, subset_colors, cor_prim, cor_secund, ranking):
+    """
+    Cria e personaliza o gráfico de barras para o ranking.
 
-def create_plot(subset_ranking, subset_colors, cor_prim, cor_secund):
+    :param subset_ranking: DataFrame contendo o subset do ranking
+    :param subset_colors: lista de cores para o subset
+    :param cor_prim: cor principal
+    :param cor_secund: cor secundária
+    :param ranking: DataFrame contendo o ranking completo
+    """
     fig, ax = plt.subplots(figsize=(12, 10))
-
-    # tornar o fundo transparente
     fig.patch.set_alpha(0)
     ax.patch.set_alpha(0)
-
-
-    # Criar o gráfico
     sns.barplot(x='valor_contrato', y='corretor', data=subset_ranking, palette=subset_colors)
     valor_maximo = subset_ranking['valor_contrato'].max()
-
-    # Remova os rótulos padrão do eixo Y
     ax.set_yticks(range(len(subset_ranking['corretor'])))
     ax.set_yticklabels([])
 
-    # Adicionar rótulos manualmente, destacando o primeiro
-    for  idx, corretor in enumerate(subset_ranking['corretor']):
+    for idx, corretor in enumerate(subset_ranking['corretor']):
         props = {'fontsize': 20, 'weight': 'bold'}
         if st.session_state.page == 0 and idx == 0:
             props['color'] = cor_prim
@@ -174,11 +172,9 @@ def create_plot(subset_ranking, subset_colors, cor_prim, cor_secund):
         else:
             props['color'] = cor_secund
             props['fontsize'] = 22
-        #ajusta a pos dos nomes
         posicao_x = -0.02 * valor_maximo
         ax.text(posicao_x, idx, corretor, ha='right', va='center', **props)
 
-    # Se estiver na primeira página, destacar o primeiro corretor
     if st.session_state.page == 0:
         valor_primeiro = subset_ranking['valor_contrato'].iloc[0]
 
@@ -195,40 +191,30 @@ def create_plot(subset_ranking, subset_colors, cor_prim, cor_secund):
     ax.yaxis.get_label().set_text('')
     plt.title('Ranking dos Corretores')
 
-    return fig, ax
-
-
-def customize_plot(fig, ax, ranking):
-    """Personaliza o gráfico.
-
-    :param fig: Figura do gráfico
-    :param ax: Eixo do gráfico
-    :param ranking: DataFrame com os dados classificados """
-
-    # Definir o fundo do gráfico para preto
+    # Personalização
     fig.patch.set_facecolor('black')
     ax.set_facecolor('black')
-
-    # Definir as cores das etiquetas dos eixos, título e ticks para branco
     ax.xaxis.label.set_color('white')
     ax.yaxis.label.set_color('white')
     ax.title.set_color('white')
     ax.tick_params(axis='both', colors='white')
-
-    
-    # Definir o limite x para o valor de contrato mais alto no conjunto de dados completo
     ax.set_xlim(0, ranking['valor_contrato'].max())
-
-    # Remover a legenda do eixo x para ocultar os valores de 'valor_contrato'
     ax.set(xticklabels=[])
-
     if st.session_state.page == 0:
         ax.yaxis.get_ticklabels()[0].set_fontsize(15)
 
-    # Exibir o gráfico no Streamlit
     st.pyplot(fig)
 
 def display_page_buttons(ranking):
+    """
+    Cria e personaliza o gráfico de barras para o ranking.
+
+    :param subset_ranking: DataFrame contendo o subset do ranking
+    :param subset_colors: lista de cores para o subset
+    :param cor_prim: cor principal
+    :param cor_secund: cor secundária
+    :param ranking: DataFrame contendo o ranking completo
+    """
     items_per_page = 10
     total_pages = (len(ranking) + items_per_page - 1) // items_per_page
 
@@ -248,95 +234,88 @@ def display_page_buttons(ranking):
 
     if button_clicked:
         st.experimental_rerun()
-  
+
 
 def display_corretor_ranking(df):
-    """Agrupa a soma dos valor_contrato por corretor e exibe no Streamlit.
+    """
+    Exibe o ranking dos corretores na interface.
 
-    :param df: DataFrame contendo os dados """
-
-
+    :param df: DataFrame contendo os dados
+    """
     ranking, colors, empreendimento = prepare_data(df)
-
     cor_prim = cores_empr[empreendimento]['Principal']
     cor_secund = cores_empr[empreendimento]['Secundária']
 
     if len(ranking) == 0:
         st.write("")
         return
-    subset_ranking, subset_colors = select_data(ranking, colors)
-    fig, ax = create_plot(subset_ranking, subset_colors, cor_prim, cor_secund)
-    customize_plot(fig, ax, ranking)
 
-    # Botões abaixo do gráfico
+    subset_ranking, subset_colors = select_data(ranking, colors)
+    create_and_customize_plot(subset_ranking, subset_colors, cor_prim, cor_secund, ranking)
     display_page_buttons(ranking)
 
 def create_meta_plot(total_vendas, metas):
+    """
+    Cria um gráfico de barra horizontal mostrando o progresso em relação às metas.
+
+    :param total_vendas: Total de vendas alcançado
+    :param metas: Lista contendo as metas
+    :return: fig, ax - Figura e eixo do gráfico
+    """
     fig, ax = plt.subplots(figsize=(10, 4))
-
-
-    # tornar o fundo transparente
     fig.patch.set_alpha(0)
     ax.patch.set_alpha(0)
-
+    
     # Cores para diferentes faixas de progresso
-    if total_vendas < metas[0]:
-        bar_color = 'red'
-    elif total_vendas < metas[1]:
-        bar_color = 'yellow'
-    else:
-        bar_color = 'green'
-
+    bar_color = 'green' if total_vendas >= metas[1] else 'yellow' if total_vendas >= metas[0] else 'red'
     plt.barh(['Total Vendas'], total_vendas, color=bar_color)
     
     # Linhas de Meta (sempre visíveis)
-    plt.axvline(x=metas[0], color='#9c9fae', linestyle='--', linewidth=3, label='Meta 30M')
-    plt.axvline(x=metas[1], color='#007c83', linestyle='--', linewidth=3, label='Meta 60M')
+    for i, meta in enumerate(metas):
+        label = f'Meta {30 * (i + 1)}M'
+        plt.axvline(x=meta, color='#9c9fae' if i == 0 else '#007c83', linestyle='--', linewidth=3, label=label)
     
-    # Limites do eixo x para sempre mostrar as metas
     plt.xlim(0, max(metas[1], total_vendas) * 1.1)
 
     return fig, ax
 
-
-
 def customize_meta_plot(fig, ax):
-    """Personaliza o gráfico de meta de vendas.
+    """
+    Personaliza o gráfico de meta de vendas.
 
     :param fig: Figura do gráfico
-    :param ax: Eixo do gráfico """
-
+    :param ax: Eixo do gráfico
+    """
     fig.patch.set_facecolor('black')
     ax.set_facecolor('black')
     ax.tick_params(axis='both', colors='white')
     ax.set(xticklabels=[])
-
     plt.xlabel('')
     plt.ylabel('')
     plt.title('Progresso das Metas', color='white')
-
     legend = plt.legend(loc='center left', bbox_to_anchor=(1, 0.5), frameon=False)
-    #st.write(legend.get_texts())
-    # for text in legend.get_texts():
-    #     text.set_color("#9c9fae")
-
     st.pyplot(fig)
 
 def display_meta_vendas(total_vendas):
-    """Exibe o progresso em relação às metas no Streamlit.
+    """
+    Exibe o progresso em relação às metas no Streamlit.
 
-    :param total_vendas: Total de vendas """
-
+    :param total_vendas: Total de vendas
+    """
     metas = [30000000, 60000000]
     fig, ax = create_meta_plot(total_vendas, metas)
     customize_meta_plot(fig, ax)
 
 def display_empreendimento_buttons(df):
-    
-    empreendimentos = [ 'TOTAL','BE GARDEN', 'BE BONIFÁCIO', 'BE DEODORO']
+    """
+    Exibe os botões de empreendimento no Streamlit.
+
+    :param df: DataFrame contendo os dados
+    """
+    empreendimentos = ['TOTAL', 'BE GARDEN', 'BE BONIFÁCIO', 'BE DEODORO']
     cols = st.columns(len(empreendimentos))
     for i, empreendimento in enumerate(empreendimentos):
-        if cols[i].button(empreendimento):  # Colocar cada botão em sua própria coluna
+        if cols[i].button(empreendimento):
             st.session_state.empreendimento = empreendimento
             st.session_state.page = 0
             st.experimental_rerun()
@@ -378,6 +357,15 @@ def mensagem(primeiro_lugar, empreendimento):
 
 
 def exibir_graficos(df):
+
+    hide_img_fs = '''
+    <style>
+    button[title="View fullscreen"]{
+        visibility: hidden;}
+    </style>
+    '''
+
+    st.markdown(hide_img_fs, unsafe_allow_html=True)
 
     total_vendas = df['valor_contrato'].sum()
     set_png_as_page_bg('Imagens/white-background.jpeg')
