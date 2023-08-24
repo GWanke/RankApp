@@ -11,10 +11,17 @@ import seaborn as sns
 if 'page' not in st.session_state:
     st.session_state.page = 0
 
+cores_empr = {
+    "BE GARDEN": {"Principal": "#2B3956", "Secundária": "#9FCC2E"},
+    "BE DEODORO": {"Principal": "#EA580C", "Secundária": "#F6A200"},
+    "BE BONIFÁCIO": {"Principal": "#36261C", "Secundária": "#D19A53"},
+    "TOTAL": {"Principal": "#007c83", "Secundária": "#9c9fae"},
+}
+
 
 @st.cache_data
 def fetch_data(url, headers):
-    """Busca os dados da API.
+    """Bus  ca os dados da API.
     :param url: URL da API
     :param headers: Cabeçalhos de autenticação
     :return: Conteúdo JSON se a resposta for bem-sucedida, código de status"""
@@ -100,20 +107,18 @@ def prepare_data(df):
     empreendimento = st.session_state.get('empreendimento', 'TOTAL')
     df = filter_by_empreendimento(df, empreendimento)
 
+    first_color = cores_empr[empreendimento]["Principal"]
+    others_color = cores_empr[empreendimento]["Secundária"]
+
     # Agrupar e ordenar os dados
     ranking = df.groupby(['corretor'], as_index=False)['valor_contrato'].sum()    
     ranking = ranking.sort_values(by='valor_contrato', ascending=False)
 
     # Normalizar os nomes
     ranking['corretor'] = ranking['corretor'].apply(processar_name)
-    
-    # Definir as cores
-    first_color = '#007c83'
-    others_color = '#9c9fae'
 
     colors = [first_color] + [others_color] * (len(ranking) - 1)
-    # Usar todas as cores base e adicionar cores aleatórias, se necessário
-    #colors = base_colors[:len(ranking)] + random_colors
+
     return ranking, colors, empreendimento
 
 def calcular_primeiro_lugar(df):
@@ -144,18 +149,18 @@ def select_data(ranking, colors):
     return subset_ranking, subset_colors
 
 
-def create_plot(subset_ranking, subset_colors):
+def create_plot(subset_ranking, subset_colors, cor_prim, cor_secund):
     fig, ax = plt.subplots(figsize=(12, 10))
 
     # tornar o fundo transparente
     fig.patch.set_alpha(0)
     ax.patch.set_alpha(0)
 
-    propriedades = [
-    {'color': '#007c83', 'fontsize': 25, 'weight': 'bold'},  # Primeiro colocado
-    {'color': '#9c9fae', 'fontsize': 22, 'weight': 'bold'},  # Segundo colocado
-    {'color': '#9c9fae', 'fontsize': 20, 'weight': 'bold'},  # Terceiro colocado
-]
+#     propriedades = [
+#     {'color': '#007c83', 'fontsize': 25, 'weight': 'bold'},  # Primeiro colocado
+#     {'color': '#9c9fae', 'fontsize': 22, 'weight': 'bold'},  # Segundo colocado
+#     {'color': '#9c9fae', 'fontsize': 20, 'weight': 'bold'},  # Terceiro colocado
+# ]
 
 
     # Criar o gráfico
@@ -168,11 +173,14 @@ def create_plot(subset_ranking, subset_colors):
 
     # Adicionar rótulos manualmente, destacando o primeiro
     for  idx, corretor in enumerate(subset_ranking['corretor']):
+        props = {'fontsize': 20, 'weight': 'bold'}
         if st.session_state.page == 0 and idx == 0:
-            props = propriedades[0]
+            props['color'] = cor_prim
+            props['fontsize'] = 25
         else:
-            props = propriedades[1]
-            #ajusta a pos dos nomes
+            props['color'] = cor_secund
+            props['fontsize'] = 22
+        #ajusta a pos dos nomes
         posicao_x = -0.02 * valor_maximo
         ax.text(posicao_x, idx, corretor, ha='right', va='center', **props)
 
@@ -253,12 +261,16 @@ def display_corretor_ranking(df):
 
     :param df: DataFrame contendo os dados """
 
-    ranking, colors, _ = prepare_data(df)
+
+    ranking, colors, empreendimento = prepare_data(df)
+
+    cor_prim = cores_empr[empreendimento]['Principal']
+    cor_secund = cores_empr[empreendimento]['Secundária']
     if len(ranking) == 0:
         st.write("Não existem vendas cadastradas para este empreendimento.")
         return
     subset_ranking, subset_colors = select_data(ranking, colors)
-    fig, ax = create_plot(subset_ranking, subset_colors)
+    fig, ax = create_plot(subset_ranking, subset_colors, cor_prim, cor_secund)
     customize_plot(fig, ax, ranking)
 
     # Botões abaixo do gráfico
@@ -398,7 +410,7 @@ def main():
         df_reserva_filtrado = (process_data(data_reserva)
                               .astype({'id_corretor': int, 'valor_contrato': float})
                               .assign(data_venda=lambda x: pd.to_datetime(x['data_venda']))
-                              .query('data_venda > "2023-01-01"'))
+                              .query('data_venda > "2022-01-01"'))
         
         exibir_graficos(df_reserva_filtrado)
     else:
