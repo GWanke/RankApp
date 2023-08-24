@@ -360,12 +360,6 @@ def exibir_graficos(df):
     set_png_as_page_bg('Imagens/white-background.jpeg')
 
     # Você pode adicionar um cabeçalho
-    col1, col2 = st.columns([0.25, 4])
-    with col1:
-        st.image('Imagens/be-monocromia-cinza.png', use_column_width = True)
-    # Coluna 1: Imagem
-    with col2:
-        st.markdown("<div style='text-align: center;'><span style='color: black; font-size:30px; font-weight:bold;'>BE Corretor Premiado</span></div>", unsafe_allow_html=True)
     primeiro_lugar, empreendimento = calcular_primeiro_lugar(df)
 
     if primeiro_lugar is not None and  empreendimento == 'TOTAL':
@@ -404,11 +398,19 @@ def main():
         df_reserva_filtrado = (process_data(data_reserva)
                               .astype({'id_corretor': int, 'valor_contrato': float})
                               .assign(data_venda=lambda x: pd.to_datetime(x['data_venda']))
-                              .query('data_venda > "2022-01-01"'))
+                              .query('data_venda > "2023-01-01"'))
         
         exibir_graficos(df_reserva_filtrado)
     else:
-        st.write(f"A operação falhou, com status {status}")
+        if status == 504:
+            mensagem_erro = "Desculpe, estamos enfrentando um atraso na resposta do servidor. Por favor, tente novamente mais tarde. Se o problema persistir, entre em contato com a nossa equipe de suporte em: gustavo.w@bravoea.com"
+        elif status == 429:
+            mensagem_erro = "Parece que houve muitas solicitações em um curto período de tempo. Por favor, aguarde alguns minutos e tente novamente."
+        else:
+            mensagem_erro = f"Ocorreu um erro inesperado com o código de status {status}. Se você continuar enfrentando esse problema, por favor, entre em contato com nossa equipe de suporte em: gustavo.w@bravoea.com"
+
+        st.write(mensagem_erro)
+
 
 
 if __name__ == '__main__':
