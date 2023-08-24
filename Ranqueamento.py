@@ -21,12 +21,12 @@ cores_empr = {
 
 @st.cache_data
 def fetch_data(url, headers):
-    """Bus  ca os dados da API.
-    :param url: URL da API
-    :param headers: Cabeçalhos de autenticação
-    :return: Conteúdo JSON se a resposta for bem-sucedida, código de status"""
+    """Busca os dados da API.
+    :param url: URL da API como string.
+    :param headers: Dicionário contendo os cabeçalhos de autenticação.
+    :return: Tupla contendo o conteúdo JSON se a resposta for bem-sucedida e o código de status da resposta."""
 
-    response = requests.get(url, headers=headers)
+    response = requests.get(url, headers=headers, timeout = 90)
     if response.status_code == 200:
         return response.json(), response.status_code
     return None, response.status_code
@@ -35,8 +35,9 @@ def fetch_data(url, headers):
 
 def process_data(data):
     """Processa os dados JSON e retorna um DataFrame.
-    :param data: Dados em formato JSON
-    :return: DataFrame processado"""
+    :param data: Dados em formato JSON como dicionário.
+    :return: DataFrame processado com os dados."""
+
     rows = []
     for key, value in data.items():
         reserva = key
@@ -65,12 +66,23 @@ def process_data(data):
 
 
 def calcular_total_vendas(df):
+    """Calcula o valor total de vendas no DataFrame fornecido.
+    :param df: DataFrame contendo os dados de vendas.
+    :return: Valor total das vendas como float."""
     return df['valor_contrato'].sum()
 
 def normalizar_nome(nome):
+    """Normaliza o nome, capitalizando cada palavra.
+    :param nome: Nome como string.
+    :return: Nome normalizado como string."""
     return ' '.join([word.capitalize() for word in nome.split()])
 
-def diminuir_name(name, max_length = 45):
+def diminuir_name(name, max_length = 30):
+    """Diminui o nome para um comprimento máximo, abreviando os nomes do meio.
+    :param name: Nome completo como string.
+    :param max_length: Comprimento máximo permitido para o nome.
+    :return: Nome abreviado como string."""
+
     if len(name) <= max_length:
         return name
 
@@ -85,13 +97,22 @@ def diminuir_name(name, max_length = 45):
 
 
 def filter_by_empreendimento(df, empreendimento):
+    """Filtra o DataFrame por empreendimento.
+    :param df: DataFrame contendo os dados.
+    :param empreendimento: Nome do empreendimento como string.
+    :return: DataFrame filtrado com base no empreendimento."""
+    
     if empreendimento == "BE GARDEN":
         return df[df['empreendimento'] == 'BE GARDEN KAÁ SQUARE']        
-    elif empreendimento != 'TOTAL':
+    if empreendimento != 'TOTAL':
         return df[df['empreendimento'] == empreendimento]     
     return df
 
 def processar_name(name):
+    """Processa o nome, normalizando e diminuindo conforme necessário.
+    :param name: Nome como string.
+    :return: Nome processado como string."""
+
     normalized_name = normalizar_nome(name)
     shortened_name = diminuir_name(normalized_name)
     return shortened_name
@@ -105,8 +126,8 @@ def prepare_data(df):
     :return: ranking, colors, empreendimento
     """
     empreendimento = st.session_state.get('empreendimento', 'TOTAL')
-    df = filter_by_empreendimento(df, empreendimento)
 
+    df = filter_by_empreendimento(df, empreendimento)
     first_color = cores_empr[empreendimento]["Principal"]
     others_color = cores_empr[empreendimento]["Secundária"]
 
@@ -240,8 +261,8 @@ def display_corretor_ranking(df):
     """
     Exibe o ranking dos corretores na interface.
 
-    :param df: DataFrame contendo os dados
-    """
+    :param df: DataFrame contendo os dados"""
+
     ranking, colors, empreendimento = prepare_data(df)
     cor_prim = cores_empr[empreendimento]['Principal']
     cor_secund = cores_empr[empreendimento]['Secundária']
@@ -260,8 +281,8 @@ def create_meta_plot(total_vendas, metas):
 
     :param total_vendas: Total de vendas alcançado
     :param metas: Lista contendo as metas
-    :return: fig, ax - Figura e eixo do gráfico
-    """
+    :return: fig, ax - Figura e eixo do gráfico"""
+    
     fig, ax = plt.subplots(figsize=(10, 4))
     fig.patch.set_alpha(0)
     ax.patch.set_alpha(0)
@@ -284,8 +305,8 @@ def customize_meta_plot(fig, ax):
     Personaliza o gráfico de meta de vendas.
 
     :param fig: Figura do gráfico
-    :param ax: Eixo do gráfico
-    """
+    :param ax: Eixo do gráfico"""
+
     fig.patch.set_facecolor('black')
     ax.set_facecolor('black')
     ax.tick_params(axis='both', colors='white')
@@ -293,25 +314,25 @@ def customize_meta_plot(fig, ax):
     plt.xlabel('')
     plt.ylabel('')
     plt.title('Progresso das Metas', color='white')
-    legend = plt.legend(loc='center left', bbox_to_anchor=(1, 0.5), frameon=False)
+    a = plt.legend(loc='center left', bbox_to_anchor=(1, 0.5), frameon=False)
     st.pyplot(fig)
 
 def display_meta_vendas(total_vendas):
     """
     Exibe o progresso em relação às metas no Streamlit.
 
-    :param total_vendas: Total de vendas
-    """
+    :param total_vendas: Total de vendas"""
+
     metas = [30000000, 60000000]
     fig, ax = create_meta_plot(total_vendas, metas)
     customize_meta_plot(fig, ax)
 
-def display_empreendimento_buttons(df):
+def display_empreendimento_buttons():
     """
     Exibe os botões de empreendimento no Streamlit.
 
-    :param df: DataFrame contendo os dados
-    """
+    :param df: DataFrame contendo os dados"""
+    
     empreendimentos = ['TOTAL', 'BE GARDEN', 'BE BONIFÁCIO', 'BE DEODORO']
     cols = st.columns(len(empreendimentos))
     for i, empreendimento in enumerate(empreendimentos):
@@ -322,11 +343,22 @@ def display_empreendimento_buttons(df):
 
 @st.cache_data
 def get_base64_of_bin_file(bin_file):
+    """
+    Converte um arquivo binário para sua representação em base64.
+
+    :param bin_file: Caminho para o arquivo binário
+    :return: string - Representação em base64 do arquivo binário"""
+
     with open(bin_file, 'rb') as f:
         data = f.read()
     return base64.b64encode(data).decode()
 
 def set_png_as_page_bg(png_file):
+    """
+    Define uma imagem PNG como plano de fundo da página.
+
+    :param png_file: Caminho para o arquivo PNG"""
+
     bin_str = get_base64_of_bin_file(png_file)
     page_bg_img = '''
     <style>
@@ -340,8 +372,16 @@ def set_png_as_page_bg(png_file):
     st.markdown(page_bg_img, unsafe_allow_html=True)
 
 def mensagem(primeiro_lugar, empreendimento):
+    """
+    Gera uma mensagem formatada anunciando o primeiro lugar em vendas para um empreendimento específico.
+
+    :param primeiro_lugar: Nome do corretor em primeiro lugar
+    :param empreendimento: Nome do empreendimento
+    :return: string - Mensagem HTML formatada
+    """
+
     if primeiro_lugar is None or empreendimento is None:
-        return f"<p style='text-align: center; color: black; font-size:25px; font-weight:bold;'>Não existe ranking atual deste empreendimento!</p>"
+        return "<p style='text-align: center; color: black; font-size:25px; font-weight:bold;'>Não existe ranking atual deste empreendimento!</p>"
 
     cor_prim = cores_empr[empreendimento]['Principal']
     cor_secund = cores_empr[empreendimento]['Secundária']
@@ -357,6 +397,11 @@ def mensagem(primeiro_lugar, empreendimento):
 
 
 def exibir_graficos(df):
+    """
+    Exibe os gráficos de vendas e progresso em relação às metas no Streamlit.
+
+    :param df: DataFrame contendo os dados de vendas
+    """
 
     hide_img_fs = '''
     <style>
@@ -375,7 +420,7 @@ def exibir_graficos(df):
 
     st.markdown(mensagem(primeiro_lugar, empreendimento), unsafe_allow_html=True)
 
-    display_empreendimento_buttons(df)
+    display_empreendimento_buttons()
 
     display_corretor_ranking(df)
 
