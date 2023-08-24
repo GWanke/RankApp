@@ -1,14 +1,10 @@
+import base64
 import requests
 import pandas as pd
 import streamlit as st
 import matplotlib.pyplot as plt
-import matplotlib.colors as mcolors
-import matplotlib.patches as patches
-from matplotlib import patheffects as path_effects
+from matplotlib import patches
 import seaborn as sns
-import numpy as np
-import base64
-from PIL import Image
 
 # Inicialize o estado da página se ainda não existir
 
@@ -26,8 +22,7 @@ def fetch_data(url, headers):
     response = requests.get(url, headers=headers)
     if response.status_code == 200:
         return response.json(), response.status_code
-    else:
-        return None, response.status_code
+    return None, response.status_code
 
 
 
@@ -179,8 +174,7 @@ def create_plot(subset_ranking, subset_colors):
             props = propriedades[1]
             #ajusta a pos dos nomes
         posicao_x = -0.02 * valor_maximo
-        ax.text(posicao_x, idx, corretor, ha='right', va='center', **props,
-                path_effects=[path_effects.Stroke(linewidth = 0.5, foreground='black'), path_effects.Normal()])
+        ax.text(posicao_x, idx, corretor, ha='right', va='center', **props)
 
     # Se estiver na primeira página, destacar o primeiro corretor
     if st.session_state.page == 0:
@@ -358,7 +352,6 @@ def set_png_as_page_bg(png_file):
     ''' % bin_str
     
     st.markdown(page_bg_img, unsafe_allow_html=True)
-    return
 
 
 def exibir_graficos(df):
@@ -396,9 +389,7 @@ def exibir_graficos(df):
 def main():
     st.set_page_config(
         page_title="BE Corretor Premiado",
-        #layout="wide",
         initial_sidebar_state="collapsed",
-        #page_icon="caminho/para/ícone",
 )
     url = st.secrets['User_url']
     headers = {
@@ -413,11 +404,11 @@ def main():
         df_reserva_filtrado = (process_data(data_reserva)
                               .astype({'id_corretor': int, 'valor_contrato': float})
                               .assign(data_venda=lambda x: pd.to_datetime(x['data_venda']))
-                              .query('data_venda > "2023-01-01"'))
+                              .query('data_venda > "2022-01-01"'))
         
         exibir_graficos(df_reserva_filtrado)
     else:
-        st.write(f"A operação falhou!, com status{status}")
+        st.write(f"A operação falhou, com status {status}")
 
 
 if __name__ == '__main__':
