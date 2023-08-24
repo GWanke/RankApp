@@ -417,7 +417,7 @@ def main():
         df_reserva_filtrado = (process_data(data_reserva)
                               .astype({'id_corretor': int, 'valor_contrato': float})
                               .assign(data_venda=lambda x: pd.to_datetime(x['data_venda']))
-                              .query('data_venda > "2022-01-01"'))
+                              .query('data_venda > "2023-01-01"'))
         
         exibir_graficos(df_reserva_filtrado)
     else:
