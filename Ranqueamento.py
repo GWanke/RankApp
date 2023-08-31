@@ -160,6 +160,7 @@ def select_data(ranking, colors):
     :param colors: lista de cores
     :return: subset_ranking, subset_colors
     """
+    
     items_per_page = 10
     start_index = st.session_state.page * items_per_page
     subset_ranking = ranking[start_index:start_index + items_per_page]
@@ -406,9 +407,12 @@ def exibir_graficos(df):
     hide_img_fs = '''
     <style>
     button[title="View fullscreen"]{
-        visibility: hidden;}
+        visibility: hidden;}    
     </style>
     '''
+    st.markdown("""
+    <h1 style='text-align: center; color: black; font-size:45px; font-weight:bold;'>Best Seller</h1>
+    """, unsafe_allow_html=True)
 
     st.markdown(hide_img_fs, unsafe_allow_html=True)
 
@@ -434,7 +438,7 @@ def exibir_graficos(df):
 
 def main():
     st.set_page_config(
-        page_title="BE Corretor Premiado",
+        page_title="Best Seller",
         initial_sidebar_state="collapsed",
 )
     url = st.secrets['User_url']
@@ -450,7 +454,7 @@ def main():
         df_reserva_filtrado = (process_data(data_reserva)
                               .astype({'id_corretor': int, 'valor_contrato': float})
                               .assign(data_venda=lambda x: pd.to_datetime(x['data_venda']))
-                              .query('data_venda > "2023-01-01"'))
+                              .query('data_venda > "2023-08-10"'))      
         
         exibir_graficos(df_reserva_filtrado)
     else:
